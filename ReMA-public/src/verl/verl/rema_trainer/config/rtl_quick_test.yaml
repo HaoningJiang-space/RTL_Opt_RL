@@ -1,0 +1,149 @@
+# RTL优化快速测试配置
+# 用于快速验证系统功能，使用较小的参数
+
+data:
+  tokenizer: null
+  # 使用生成的示例数据进行测试
+  train_files: data/rtl_test/sample_train.parquet
+  val_files: data/rtl_test/sample_val.parquet
+  prompt_key: original_code
+  response_key: optimized_code
+  max_prompt_length: 2048  # 较短的长度用于测试
+  max_response_length: 2048
+  train_batch_size: 16  # 小批量测试
+  val_batch_size: null
+  return_raw_input_ids: False
+  return_raw_chat: False
+  shuffle: True
+  filter_overlong_prompts: True
+  truncation: left
+
+  # 测试模式标记
+  test_mode: True
+  generate_sample_data: True  # 自动生成示例数据
+  sample_data_size: 50
+
+actor_rollout_ref:
+  hybrid_engine: True
+  model:
+    # 使用较小或本地可用的模型进行测试
+    path: deepseek-ai/deepseek-coder-6.7b-instruct
+    external_lib: null
+    override_config: {}
+    enable_gradient_checkpointing: False  # 关闭以简化调试
+    use_remove_padding: False
+
+  ref_model:
+    path: ${actor_rollout_ref.model.path}
+    external_lib: ${actor_rollout_ref.model.external_lib}
+    override_config: ${actor_rollout_ref.model.override_config}
+    enable_gradient_checkpointing: ${actor_rollout_ref.model.enable_gradient_checkpointing}
+    use_remove_padding: ${actor_rollout_ref.model.use_remove_padding}
+
+  actor:
+    optim:
+      lr: 1e-4  # 较大的学习率用于快速测试
+      beta1: 0.9
+      beta2: 0.95
+      eps: 1.0e-8
+      weight_decay: 0.01
+    ppo_mini_batch_size: 64
+    ppo_micro_batch_size_per_gpu: 4
+    gradient_checkpointing: false
+    flash_attention_2: false
+
+    clip_mode: turn
+    agg_mode: trajectory
+    kl_ctrl:
+      type: adaptive
+      target: 6.0
+      horizon: 1000  # 较短的horizon
+
+    max_new_tokens_per_turn: 1024  # 较少的生成token
+    temperature: 0.8
+    top_p: 0.9
+
+  ref:
+    log_prob_micro_batch_size_per_gpu: 8
+
+  rollout:
+    log_prob_micro_batch_size_per_gpu: 8
+    tensor_model_parallel_size: 1
+    max_num_batched_tokens: 2048
+
+    max_num_turns: 5  # 较少的轮次用于快速测试
+    n: 4  # 较少的rollout数量
+    stop_when_truncated: True
+
+    enable_code_validation: True
+    preserve_module_structure: True
+
+# 训练器配置 - 快速测试参数
+trainer:
+  project_name: rtl_quick_test
+  experiment_name: rtl_test_run
+  save_freq: 2  # 频繁保存用于调试
+  test_freq: 1  # 每个epoch都测试
+  total_epochs: 5  # 只跑5个epoch
+  total_training_steps: 50  # 较少的训练步数
+
+  val_before_train: True
+  val_only: False
+  save_val_generations: True
+  save_train_generations: True
+
+  remove_previous_ckpt_in_save: False
+
+  logger: [console]  # 只使用控制台日志，不使用wandb
+
+# 自定义奖励函数
+custom_reward_function:
+  path: src/verl/verl/rema_trainer/rtl_reward_manager.py
+  name: rtl_reward_function
+
+# 奖励模型配置
+reward_model:
+  reward_manager: rema
+  mask_unfinished_reward: True
+
+  # 测试模式下的验证配置
+  verification_tools:
+    enable_verilator: True
+    enable_yosys: False  # 关闭较慢的综合检查
+    enable_iverilog: True
+
+  # 测试权重
+  syntax_weight: 0.6  # 更重视语法正确性
+  synthesis_weight: 0.0  # 关闭综合检查
+  ppa_weight: 0.4
+
+# 算法配置
+algorithm:
+  adv_estimator: grpo
+
+  filter_groups:
+    enable: True
+    min_reward_threshold: 0.05  # 较低的阈值用于测试
+    max_response_length: 4096
+
+  rtl_filters:
+    require_module_structure: True
+    require_endmodule: True
+    filter_syntax_errors: False  # 测试时允许一些语法错误
+
+# Switch Agent配置
+switch_agent:
+  enable: False
+
+# 硬件配置
+hardware:
+  tensor_model_parallel_size: 1
+  pipeline_model_parallel_size: 1
+  distributed_backend: nccl
+
+# 调试配置
+debug:
+  log_level: DEBUG  # 详细日志
+  save_intermediate_codes: True
+  verbose_validation: True
+  profile_reward_calculation: True

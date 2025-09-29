@@ -1,0 +1,165 @@
+# RTL优化专用的ReMA训练配置
+# 基于原始ppo_trainer.yaml修改，针对RTL代码优化任务
+
+data:
+  tokenizer: null
+  # RTL优化数据路径 - 用户需要根据实际情况修改
+  train_files: data/rtl_optimization/train.parquet
+  val_files: data/rtl_optimization/val.parquet
+  prompt_key: original_code  # RTL原始代码作为prompt
+  response_key: optimized_code  # 优化后代码作为response
+  max_prompt_length: 4096  # RTL代码通常较长
+  max_response_length: 4096  # 优化后代码长度
+  train_batch_size: 64  # 根据GPU内存调整
+  val_batch_size: null
+  return_raw_input_ids: False
+  return_raw_chat: False
+  shuffle: True
+  filter_overlong_prompts: True  # 过滤过长的RTL代码
+  truncation: left  # 从左侧截断，保留代码主体
+
+  # RTL特殊处理
+  code_start_token: "```verilog"
+  code_end_token: "```"
+  preserve_code_structure: True
+
+# 模型配置 - 使用Verilog专用模型
+actor_rollout_ref:
+  hybrid_engine: True
+  model:
+    # 推荐使用DeepSeek-Coder或其他Verilog专用模型
+    path: deepseek-ai/deepseek-coder-6.7b-instruct
+    # 可选的其他Verilog模型:
+    # path: henryen/OriGen_Fix
+    # path: Nellyw888/VeriReason-Qwen2.5-7b-RTLCoder-Verilog-GRPO-reasoning-tb
+    external_lib: null
+    override_config: {}
+    enable_gradient_checkpointing: True
+    use_remove_padding: False
+
+  ref_model:
+    path: ${actor_rollout_ref.model.path}
+    external_lib: ${actor_rollout_ref.model.external_lib}
+    override_config: ${actor_rollout_ref.model.override_config}
+    enable_gradient_checkpointing: ${actor_rollout_ref.model.enable_gradient_checkpointing}
+    use_remove_padding: ${actor_rollout_ref.model.use_remove_padding}
+
+  # ReMA特性配置
+  actor:
+    optim:
+      lr: 5e-6  # 较小的学习率，适合代码优化任务
+      beta1: 0.9
+      beta2: 0.95
+      eps: 1.0e-8
+      weight_decay: 0.01
+    ppo_mini_batch_size: 256
+    ppo_micro_batch_size_per_gpu: 8
+    gradient_checkpointing: false
+    flash_attention_2: false
+
+    # ReMA核心参数
+    clip_mode: turn  # turn-level clipping for multi-agent
+    agg_mode: trajectory  # trajectory aggregation
+    kl_ctrl:
+      type: adaptive
+      target: 6.0
+      horizon: 10000
+
+    # RTL专用训练参数
+    max_new_tokens_per_turn: 2048  # 每轮最大生成token数
+    temperature: 0.7  # 适中的随机性
+    top_p: 0.9
+
+  ref:
+    log_prob_micro_batch_size_per_gpu: 16
+
+  rollout:
+    log_prob_micro_batch_size_per_gpu: 16
+    tensor_model_parallel_size: 1
+    max_num_batched_tokens: 4096
+
+    # 多轮对话配置（支持多步优化）
+    max_num_turns: 15  # 支持多轮优化交互
+    n: 8  # rollout数量
+    stop_when_truncated: True
+
+    # RTL特殊配置
+    enable_code_validation: True  # 启用代码验证
+    preserve_module_structure: True  # 保持模块结构
+
+# 训练器配置
+trainer:
+  project_name: rtl_optimization
+  experiment_name: rtl_rema_experiment
+  save_freq: 10
+  test_freq: 5
+  total_epochs: 50
+  total_training_steps: 2000
+
+  # 验证配置
+  val_before_train: True
+  val_only: False
+  save_val_generations: True
+  save_train_generations: True
+
+  # 模型保存
+  remove_previous_ckpt_in_save: False  # 保留历史检查点
+
+  # 日志配置
+  logger: [console, wandb]
+
+# RTL专用奖励函数配置
+custom_reward_function:
+  path: src/verl/verl/rema_trainer/rtl_reward_manager.py
+  name: rtl_reward_function
+
+# 奖励函数参数
+reward_model:
+  reward_manager: rema
+  mask_unfinished_reward: True
+
+  # RTL验证配置
+  verification_tools:
+    enable_verilator: True
+    enable_yosys: True
+    enable_iverilog: True
+
+  # 奖励权重
+  syntax_weight: 0.4    # 语法正确性权重
+  synthesis_weight: 0.4  # 综合成功权重
+  ppa_weight: 0.2       # PPA改善权重
+
+# 算法配置
+algorithm:
+  adv_estimator: grpo  # ReMA推荐的优势估计器
+
+  # 过滤配置
+  filter_groups:
+    enable: True
+    min_reward_threshold: 0.1  # 最低奖励阈值
+    max_response_length: 8192   # 最大响应长度
+
+  # RTL特定过滤
+  rtl_filters:
+    require_module_structure: True  # 要求包含module结构
+    require_endmodule: True         # 要求包含endmodule
+    filter_syntax_errors: True     # 过滤语法错误
+
+# Switch Agent配置（如果使用separated trainer）
+switch_agent:
+  enable: False  # 暂时使用共享参数模式
+  freq: 10
+  model_paths: null
+
+# 硬件配置
+hardware:
+  tensor_model_parallel_size: 1
+  pipeline_model_parallel_size: 1
+  distributed_backend: nccl
+
+# 调试配置
+debug:
+  log_level: INFO
+  save_intermediate_codes: True
+  verbose_validation: True
+  profile_reward_calculation: False

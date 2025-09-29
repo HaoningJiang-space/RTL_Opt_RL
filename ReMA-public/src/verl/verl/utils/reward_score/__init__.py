@@ -41,6 +41,9 @@ def _default_compute_score(data_source: str, solution_str: str, ground_truth: st
     elif data_source in ['hiyouga/geometry3k']:
         from . import geo3k
         res = geo3k.compute_score(solution_str, ground_truth)
+    elif data_source in ['rtl_optimization', 'rtl_math', 'rtl_generation', 'verilog_optimization']:
+        from . import rtl_optimization
+        res = rtl_optimization.compute_score(data_source, solution_str, ground_truth, extra_info)
     else:
         raise NotImplementedError(f"{data_source} compute score not supported")
 

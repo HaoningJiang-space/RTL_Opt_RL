@@ -1,0 +1,130 @@
+# RTL多智能体优化系统默认配置
+
+# 实验配置
+experiment:
+  name: "rtl_multi_agent_experiment"
+  project_name: "rtl_optimization"
+  save_dir: "./experiments"
+  use_wandb: true
+  wandb_project: "rtl-multi-agent"
+
+# 模型配置
+models:
+  # 推荐的Verilog专用模型
+  meta_optimizer:
+    model_name: "deepseek-ai/deepseek-coder-6.7b-instruct"
+    max_length: 4096
+    device: "auto"
+
+  code_rewriter:
+    model_name: "deepseek-ai/deepseek-coder-6.7b-instruct"
+    max_length: 4096
+    device: "auto"
+
+  # 备选模型配置
+  alternative_models:
+    origen: "henryen/OriGen_Fix"
+    verireason: "Nellyw888/VeriReason-Qwen2.5-7b-RTLCoder-Verilog-GRPO-reasoning-tb"
+
+# 训练配置
+training:
+  num_epochs: 20
+  episodes_per_epoch: 50
+  max_steps_per_episode: 15
+  batch_size: 8
+  learning_rate: 1e-4
+  weight_decay: 1e-5
+  discount_factor: 0.95
+
+  # 学习率调度
+  learning_rates:
+    meta_optimizer: 5e-5
+    code_rewriter: 1e-4
+
+  # PPO相关参数
+  ppo_mini_batch_size: 4
+  ppo_epochs: 3
+  clip_epsilon: 0.2
+  value_loss_coef: 0.5
+  entropy_coef: 0.01
+
+  # ReMA特性
+  clip_mode: "turn"  # turn-level clipping
+  agg_mode: "trajectory"  # trajectory aggregation
+  max_turns: 20
+
+# 环境配置
+environment:
+  max_steps: 20
+  success_threshold: 0.8
+  timeout_penalty: -0.1
+
+  # 验证配置
+  verification:
+    enable_verilator: true
+    enable_yosys: true
+    enable_iverilog: true
+    syntax_weight: 0.4
+    synthesis_weight: 0.4
+    compilation_weight: 0.2
+
+# 数据配置
+data:
+  train_data_path: "./data/train_optimization_sequences.json"
+  test_data_path: "./data/test_optimization_sequences.json"
+  max_prompt_length: 4096
+  max_response_length: 2048
+  augment_data: true
+  train_test_split: 0.8
+
+# 评估配置
+evaluation:
+  eval_freq: 2  # 每2个epoch评估一次
+  eval_episodes: 20
+  save_best_model: true
+
+  # 评估指标
+  metrics:
+    - success_rate
+    - average_reward
+    - syntax_success_rate
+    - synthesis_success_rate
+    - ppa_improvement
+
+# 日志配置
+logging:
+  level: "INFO"
+  save_freq: 5  # 每5个epoch保存检查点
+  log_file: "./logs/training.log"
+
+  # W&B配置
+  wandb:
+    entity: null  # 设置您的W&B entity
+    tags: ["rtl", "multi-agent", "optimization"]
+    notes: "RTL多智能体优化实验"
+
+# 硬件配置
+hardware:
+  device: "auto"  # auto, cpu, cuda, cuda:0等
+  mixed_precision: true
+  gradient_checkpointing: false
+  max_memory_gb: 16
+
+# 优化目标配置
+optimization_goals:
+  timing:
+    weight: 1.0
+    target_improvement: 0.2
+  area:
+    weight: 0.8
+    target_improvement: 0.15
+  power:
+    weight: 0.6
+    target_improvement: 0.1
+
+# 调试配置
+debug:
+  enable_debug_mode: false
+  save_intermediate_codes: false
+  verbose_logging: false
+  profile_performance: false
