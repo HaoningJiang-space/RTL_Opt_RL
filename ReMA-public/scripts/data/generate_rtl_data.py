@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-RTL优化数据生成脚本
-生成符合ReMA框架格式的RTL优化训练数据
+RTL Optimization Data Generation Script
+Generate RTL optimization training data in ReMA framework format
 """
 
 import argparse
@@ -13,7 +13,7 @@ from typing import List, Dict, Any
 
 
 def generate_basic_verilog(module_name: str, complexity: str = "simple") -> str:
-    """生成基础Verilog代码"""
+    """Generate basic Verilog code"""
 
     if complexity == "simple":
         return f'''module {module_name}(
@@ -82,7 +82,7 @@ endmodule'''
     reg stage1_valid, stage2_valid, stage3_valid;
     reg [31:0] temp1, temp2, temp3;
 
-    // 第一级流水线
+    // First pipeline stage
     always @(posedge clk) begin
         if (rst) begin
             stage1_data <= 0;
@@ -99,7 +99,7 @@ endmodule'''
         end
     end
 
-    // 第二级流水线
+    // Second pipeline stage
     always @(posedge clk) begin
         if (rst) begin
             stage2_data <= 0;
@@ -112,7 +112,7 @@ endmodule'''
         end
     end
 
-    // 第三级流水线
+    // Third pipeline stage
     always @(posedge clk) begin
         if (rst) begin
             stage3_data <= 0;
@@ -133,18 +133,18 @@ endmodule'''
 
 
 def generate_optimized_verilog(original_code: str, optimization_type: str) -> tuple[str, str]:
-    """根据原始代码生成优化版本"""
+    """Generate optimized version based on original code"""
 
     module_name = extract_module_name(original_code) + "_opt"
 
     if "temp_reg" in original_code and optimization_type in ["area", "timing"]:
-        # 面积/时序优化：去除中间寄存器
+        # Area/timing optimization: remove intermediate register
         optimized = original_code.replace("reg [7:0] temp_reg;", "")
         optimized = optimized.replace("temp_reg <= data_in + 1;", "")
         optimized = optimized.replace("data_out <= temp_reg;", "data_out <= data_in + 1;")
         optimized = optimized.replace(extract_module_name(original_code), module_name)
 
-        optimization_desc = "优化策略：\n1. 消除中间寄存器temp_reg，直接计算输出\n2. 减少一个时钟周期延迟\n3. 节省面积资源"
+        optimization_desc = "Optimization Strategy:\n1. Eliminate intermediate register temp_reg, directly calculate output\n2. Reduce one clock cycle delay\n3. Save area resources"
 
     elif "intermediate" in original_code and optimization_type == "pipeline":
         # 流水线优化
@@ -191,7 +191,7 @@ def extract_module_name(verilog_code: str) -> str:
 
 def create_rema_conversation(original_code: str, optimized_code: str, optimization_desc: str,
                            optimization_type: str) -> List[Dict[str, str]]:
-    """创建ReMA格式的多轮对话 - 多智能体RTL优化"""
+    """Create ReMA format multi-turn conversation - multi-agent RTL optimization"""
 
     # 构建专业的RTL优化提示
     question = f"""You are a professional multi-agent RTL optimization system. Please analyze and optimize the following Verilog code.
