@@ -643,29 +643,22 @@ class RayReMATrainer(object):
         sample_scores = []
 
         max_num_turns = self.config.actor_rollout_ref.rollout.max_num_turns
-        if max_num_turns > 1:
-            from prompt.math.multi_turn_mamrp import MTA_SYSTEM_PRMOPT, RA_SYSTEM_PRMOPT
-            from prompt import FINISH_FLAG
-            rollout_meta_info = {
-                'agent_roles': ['meta_thinking', 'reasoning'],
-                'finish_flag': FINISH_FLAG,
-                'system_prompts': {
-                    'meta_thinking': MTA_SYSTEM_PRMOPT,
-                    'reasoning': RA_SYSTEM_PRMOPT
-                },
-                'max_num_turns': max_num_turns
-            }
-        else:
-            from prompt.math.single_turn_mamrp import MTA_SYSTEM_PRMOPT, RA_SYSTEM_PRMOPT
-            rollout_meta_info = {
-                'agent_roles': ['meta_thinking', 'reasoning'],
-                'finish_flag': None,
-                'system_prompts': {
-                    'meta_thinking': MTA_SYSTEM_PRMOPT,
-                    'reasoning': RA_SYSTEM_PRMOPT
-                },
-                'max_num_turns': max_num_turns
-            }
+
+        # Detect data source from validation data to select appropriate prompts
+        data_source = ''
+        if len(self.val_dataloader) > 0:
+            first_batch = next(iter(self.val_dataloader))
+            data_source = first_batch.get('data_source', [''])[0] if isinstance(first_batch.get('data_source', ['']), list) else first_batch.get('data_source', '')
+
+        # Use dynamic prompt selection based on data source
+        from .prompt_helper import get_rollout_meta_info
+        from prompt import FINISH_FLAG
+
+        rollout_meta_info = get_rollout_meta_info(
+            data_source=data_source,
+            max_num_turns=max_num_turns,
+            finish_flag=FINISH_FLAG
+        )
 
         for test_data in self.val_dataloader:
             # test_batch = DataProto.from_single_dict(test_data)
@@ -1035,30 +1028,22 @@ class RayReMATrainer(object):
         last_val_metrics = None
 
         max_num_turns = self.config.actor_rollout_ref.rollout.max_num_turns
-        if max_num_turns > 1:
-            from prompt.math.multi_turn_mamrp import MTA_SYSTEM_PRMOPT, RA_SYSTEM_PRMOPT
-            from prompt import FINISH_FLAG
-            rollout_meta_info = {
-                'agent_roles': ['meta_thinking', 'reasoning'],
-                'finish_flag': FINISH_FLAG,
-                'system_prompts': {
-                    'meta_thinking': MTA_SYSTEM_PRMOPT,
-                    'reasoning': RA_SYSTEM_PRMOPT
-                },
-                'max_num_turns': max_num_turns
-            }
-        else:
-            from prompt.math.single_turn_mamrp import MTA_SYSTEM_PRMOPT, RA_SYSTEM_PRMOPT
-            from prompt import FINISH_FLAG
-            rollout_meta_info = {
-                'agent_roles': ['meta_thinking', 'reasoning'],
-                'finish_flag': None,
-                'system_prompts': {
-                    'meta_thinking': MTA_SYSTEM_PRMOPT,
-                    'reasoning': RA_SYSTEM_PRMOPT
-                },
-                'max_num_turns': max_num_turns
-            }
+
+        # Detect data source from training data to select appropriate prompts
+        data_source = ''
+        if len(self.dataloader) > 0:
+            first_batch = next(iter(self.dataloader))
+            data_source = first_batch.get('data_source', [''])[0] if isinstance(first_batch.get('data_source', ['']), list) else first_batch.get('data_source', '')
+
+        # Use dynamic prompt selection based on data source
+        from .prompt_helper import get_rollout_meta_info
+        from prompt import FINISH_FLAG
+
+        rollout_meta_info = get_rollout_meta_info(
+            data_source=data_source,
+            max_num_turns=max_num_turns,
+            finish_flag=FINISH_FLAG
+        )
         
         batch = None
         num_prompt_in_batch = 0

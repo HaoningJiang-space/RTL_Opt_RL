@@ -43,7 +43,8 @@ from verl.single_controller.ray import (
     RayResourcePool,
     RayWorkerGroup,
 )
-from prompt.math.mamrp import MTA_SYSTEM_PRMOPT, RA_SYSTEM_PRMOPT
+from prompt.math.multi_turn_mamrp import MTA_SYSTEM_PRMOPT, RA_SYSTEM_PRMOPT
+from prompt.rtl.multi_turn_rtl import RTL_MTA_SYSTEM_PROMPT, RTL_RA_SYSTEM_PROMPT
 from prompt import FINISH_FLAG
 
 
@@ -78,7 +79,17 @@ def _generate_batch(
     dispatch_dp_size,
 ) -> DataProto:
     assert role in ["meta_thinking", "reasoning"]
-    system_prompt = MTA_SYSTEM_PRMOPT if role == "meta_thinking" else RA_SYSTEM_PRMOPT
+
+    # Get data source to determine appropriate system prompt
+    data_source = batch_ds.iloc[0].get('data_source', '') if len(batch_ds) > 0 else ''
+
+    # Select system prompt based on data source
+    if data_source in ['rtl_optimization', 'rtl_generation', 'rtl_math', 'verilog_optimization'] or data_source.startswith('rtl_'):
+        # Use RTL-specific prompts
+        system_prompt = RTL_MTA_SYSTEM_PROMPT if role == "meta_thinking" else RTL_RA_SYSTEM_PROMPT
+    else:
+        # Use default math prompts
+        system_prompt = MTA_SYSTEM_PRMOPT if role == "meta_thinking" else RA_SYSTEM_PRMOPT
     chat_lst = [[{
         "role": "system",
         "content": system_prompt
