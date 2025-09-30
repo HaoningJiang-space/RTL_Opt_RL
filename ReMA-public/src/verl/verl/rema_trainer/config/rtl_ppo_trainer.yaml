@@ -6,8 +6,8 @@ data:
   # RTL optimization data paths - users need to modify according to actual situation
   train_files: data/rtl_optimization/train.parquet
   val_files: data/rtl_optimization/val.parquet
-  prompt_key: original_code  # RTL original code as prompt
-  response_key: optimized_code  # Optimized code as response
+  prompt_key: question  # RTL design task as prompt (ReMA standard)
+  response_key: ground_truth  # Reference optimized code as response
   max_prompt_length: 4096  # RTL code is usually longer
   max_response_length: 4096  # Optimized code length
   train_batch_size: 64  # Adjust according to GPU memory
@@ -22,6 +22,7 @@ data:
   code_start_token: "```verilog"
   code_end_token: "```"
   preserve_code_structure: True
+  task_type: rtl_generation  # Task type for proper prompt handling
 
 # Model configuration - using Verilog-specific models
 actor_rollout_ref:
@@ -109,9 +110,8 @@ trainer:
   logger: [console, wandb]
 
 # RTL-specific reward function configuration
-custom_reward_function:
-  path: src/verl/verl/rema_trainer/rtl_reward_manager.py
-  name: rtl_reward_function
+# Uses the integrated reward function in utils/reward_score/rtl_optimization.py
+# No custom_reward_function needed as it's integrated into ReMA's default system
 
 # Reward function parameters
 reward_model:

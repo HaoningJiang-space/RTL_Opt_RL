@@ -6,7 +6,7 @@ data:
   # Using generated sample data for testing
   train_files: data/rtl_test/sample_train.parquet
   val_files: data/rtl_test/sample_val.parquet
-  prompt_key: original_code
+  prompt_key: question
   response_key: optimized_code
   max_prompt_length: 2048  # Shorter length for testing
   max_response_length: 2048
@@ -96,10 +96,8 @@ trainer:
 
   logger: [console]  # Only use console logging, no wandb
 
-# Custom reward function
-custom_reward_function:
-  path: src/verl/verl/rema_trainer/rtl_reward_manager.py
-  name: rtl_reward_function
+# RTL reward function integrated into ReMA's default system
+# No custom_reward_function needed
 
 # Reward model configuration
 reward_model:
